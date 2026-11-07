@@ -2,10 +2,14 @@
   "manifest_version": 3,
   "name": "Orknux",
   "description": "Lets your Orknux agents use this browser: open pages, read them, click and type - in a window of their own, while you watch.",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "minimum_chrome_version": "116",
   "action": {
-    "default_title": "Orknux"
+    "default_title": "Orknux",
+    "default_icon": {
+      "16": "icons/icon-16.png",
+      "32": "icons/icon-32.png"
+    }
   },
   "side_panel": {
     "default_path": "panel.html"
@@ -14,6 +18,21 @@
     "service_worker": "background.js",
     "type": "module"
   },
-  "permissions": ["debugger", "tabs", "tabGroups", "storage", "sidePanel"],
-  "optional_host_permissions": ["http://*/*", "https://*/*"]
+  "permissions": [
+    "debugger",
+    "tabs",
+    "tabGroups",
+    "storage",
+    "sidePanel"
+  ],
+  "optional_host_permissions": [
+    "http://*/*",
+    "https://*/*"
+  ],
+  "icons": {
+    "16": "icons/icon-16.png",
+    "32": "icons/icon-32.png",
+    "48": "icons/icon-48.png",
+    "128": "icons/icon-128.png"
+  }
 }
