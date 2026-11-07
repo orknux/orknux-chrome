@@ -61,6 +61,9 @@ async function request(path, init = {}) {
   return fetch(serverOf() + path, {
     ...init,
     headers: { ...(init.headers ?? {}), Authorization: `Bearer ${token}` },
+    // Its own credential and nothing else: Chrome would otherwise send the
+    // browser's Orknux sign-in along, and act as whoever is signed in there.
+    credentials: 'omit',
     signal: controller?.signal,
   });
 }
@@ -76,6 +79,7 @@ const PAIRING_CODE = /^\s*[A-HJ-NP-Za-hj-np-z2-9]{3}-?[A-HJ-NP-Za-hj-np-z2-9]{3}
 async function pairWith(server, code) {
   const answer = await fetch(`${server}/api/clients/pair`, {
     method: 'POST',
+    credentials: 'omit',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ code: code.trim(), client: 'Chrome', name: `Chrome on ${navigator.userAgentData?.platform ?? navigator.platform ?? 'this computer'}` }),
   });
