@@ -19,6 +19,7 @@ const TOKEN = 'orkx_test';
 const queue = [];
 const waiting = new Map();
 const pollers = [];
+const paired = [];
 let failures = 0;
 
 function check(what, ok, detail = '') {
@@ -44,6 +45,13 @@ const server = http.createServer(async (req, res) => {
   if (url.pathname === '/page.html') return res.end(PAGE);
   if (url.pathname === '/second.html') return res.end('<title>Second</title><p>Second page here</p>');
   if (url.pathname === '/api/client/compatibility') return send(200, { product: 'Orknux', server: '1.3.6', serverMajor: 1, compatible: true, reason: null });
+  if (url.pathname === '/api/clients/pair' && req.method === 'POST') {
+    let body = '';
+    for await (const chunk of req) body += chunk;
+    const asked = JSON.parse(body);
+    paired.push(asked);
+    return asked.code.toUpperCase().replace('-', '') === 'K7P4QX' ? send(200, { credential: TOKEN, user: 'alice' }) : send(400, { error: 'That pairing code is not valid.' });
+  }
   if (req.headers.authorization !== `Bearer ${TOKEN}`) return send(401, { error: 'no' });
   if (url.pathname === '/api/browser/hello') return send(200, { user: 'alice' });
   if (url.pathname === '/api/browser/next') {
@@ -109,10 +117,12 @@ const extensionId = new URL(worker.url()).host;
 const panel = await context.newPage();
 await panel.goto(`chrome-extension://${extensionId}/panel.html`);
 await panel.fill('#server', BASE);
-await panel.fill('#token', TOKEN);
+// A pairing code, as Orknux shows it: traded for the browser's own credential.
+await panel.fill('#token', 'k7p-4qx');
 await panel.click('#connect');
 await panel.waitForFunction(() => document.getElementById('state').textContent.includes('alice'), null, { timeout: 10_000 });
-check('the panel connects and says who it is', true);
+check('a pairing code connects the panel, which says who it is', paired.length === 1 && paired[0].client === 'Chrome', JSON.stringify(paired));
+check('and the code is replaced by the credential it was traded for', (await panel.inputValue('#token')) === TOKEN);
 
 try {
   const opened = await command('open', { url: `${BASE}/page.html` });

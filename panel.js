@@ -65,6 +65,25 @@ async function request(path, init = {}) {
   });
 }
 
+/** A pairing code as shown in Orknux, K7P-4QX: any case, with or without its dash. */
+const PAIRING_CODE = /^\s*[A-HJ-NP-Za-hj-np-z2-9]{3}-?[A-HJ-NP-Za-hj-np-z2-9]{3}\s*$/;
+
+/**
+ * Trades a pairing code for this browser's own credential, which then stands
+ * in the token field and in storage. A code works once and for minutes, so it
+ * is never kept.
+ */
+async function pairWith(server, code) {
+  const answer = await fetch(`${server}/api/clients/pair`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ code: code.trim(), client: 'Chrome', name: `Chrome on ${navigator.userAgentData?.platform ?? navigator.platform ?? 'this computer'}` }),
+  });
+  const said = await answer.json().catch(() => ({}));
+  if (!answer.ok) throw new Error(said.error ?? `The server answered ${answer.status} to the pairing code.`);
+  return said.credential;
+}
+
 async function connect() {
   say(null);
   const server = serverOf();
@@ -80,6 +99,14 @@ async function connect() {
   if (!granted) {
     say('The extension needs permission to reach your server.');
     return;
+  }
+  if (PAIRING_CODE.test($('token').value)) {
+    try {
+      $('token').value = await pairWith(server, $('token').value);
+    } catch (failed) {
+      say(failed.message);
+      return;
+    }
   }
   await chrome.storage.local.set({ server, token: $('token').value.trim() });
 
