@@ -2,7 +2,7 @@
   "manifest_version": 3,
   "name": "Orknux",
   "description": "Lets your Orknux agents use this browser: open pages, read them, click and type - in a window of their own, while you watch.",
-  "version": "1.0.2",
+  "version": "1.0.3",
   "minimum_chrome_version": "116",
   "action": {
     "default_title": "Orknux",

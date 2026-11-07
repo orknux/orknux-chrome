@@ -72,6 +72,25 @@ async function request(path, init = {}) {
 const PAIRING_CODE = /^\s*[A-HJ-NP-Za-hj-np-z2-9]{3}-?[A-HJ-NP-Za-hj-np-z2-9]{3}\s*$/;
 
 /**
+ * A pairing link, which Connect a client shows: the server and a code in one
+ * thing to copy - https://orknux.example.com/pair/K7P-4QX. Everything before
+ * the last /pair/ is the server, so one under a path prefix works too.
+ */
+const PAIRING_LINK = /^\s*(https?:\/\/.+)\/pair\/([A-HJ-NP-Za-hj-np-z2-9]{3}-?[A-HJ-NP-Za-hj-np-z2-9]{3})\/?\s*$/;
+
+/** Splits a pairing link pasted into either field into the server and the code; leaves anything else as it is. */
+function splitPairingLink() {
+  for (const field of ['server', 'token']) {
+    const link = PAIRING_LINK.exec($(field).value);
+    if (link !== null) {
+      $('server').value = link[1];
+      $('token').value = link[2];
+      return;
+    }
+  }
+}
+
+/**
  * Trades a pairing code for this browser's own credential, which then stands
  * in the token field and in storage. A code works once and for minutes, so it
  * is never kept.
@@ -90,6 +109,7 @@ async function pairWith(server, code) {
 
 async function connect() {
   say(null);
+  splitPairingLink();
   const server = serverOf();
   let origin;
   try {
@@ -102,6 +122,10 @@ async function connect() {
   const granted = await chrome.permissions.request({ origins: [origin + '/*'] }).catch(() => false);
   if (!granted) {
     say('The extension needs permission to reach your server.');
+    return;
+  }
+  if ($('token').value.trim() === '') {
+    say('Paste the pairing link from Orknux, or a server address and an access token.');
     return;
   }
   if (PAIRING_CODE.test($('token').value)) {

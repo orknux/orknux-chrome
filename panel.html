@@ -12,13 +12,14 @@
   </header>
 
   <form id="settings">
-    <label>Server
-      <input id="server" type="url" placeholder="https://orknux.example.com" required>
+    <label>Pairing link or server
+      <!-- text, not url: a pasted pairing link is split before anything checks it. -->
+      <input id="server" type="text" placeholder="https://orknux.example.com/pair/K7P-4QX" autocomplete="off" required>
     </label>
-    <label>Pairing code or access token
-      <input id="token" type="password" placeholder="K7P-4QX or orkx_…" autocomplete="off" required>
+    <label>Access token, if not a pairing link
+      <input id="token" type="password" placeholder="orkx_… (or the code alone)" autocomplete="off">
     </label>
-    <p class="hint">In Orknux, open Preferences › Connected clients and press Connect a client, then type the code here. A read and write access token works too. Your agents act in this browser as you, while this panel is open.</p>
+    <p class="hint">Paste the pairing link from Orknux (or server + token): Preferences › Connected clients › Connect a client. Your agents act in this browser as you, while this panel is open.</p>
     <div class="buttons">
       <button id="connect" type="submit">Connect</button>
       <button id="disconnect" type="button" hidden>Disconnect</button>

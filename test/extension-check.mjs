@@ -182,6 +182,17 @@ try {
 
   const log = await panel.locator('#log li').allTextContents();
   check('the panel logs what was done', log.some((line) => line.includes('Clicked')), log.slice(0, 3).join(' | '));
+
+  // A pairing link alone, pasted into the server field: split into the server and the code, and traded.
+  await panel.click('#disconnect');
+  await panel.waitForFunction(() => document.getElementById('state').textContent.includes('Not connected'), null, { timeout: 10_000 });
+  await panel.fill('#server', `${BASE}/pair/k7p4qx`);
+  await panel.fill('#token', '');
+  await panel.click('#connect');
+  await panel.waitForFunction(() => document.getElementById('state').textContent.includes('alice'), null, { timeout: 10_000 });
+  check('a pairing link alone connects the panel', paired.length === 2, JSON.stringify(paired));
+  check('and is split into the server and the credential', (await panel.inputValue('#server')) === BASE && (await panel.inputValue('#token')) === TOKEN,
+    `${await panel.inputValue('#server')} / ${(await panel.inputValue('#token')).slice(0, 6)}`);
 } catch (failed) {
   check('the run finished', false, failed.message);
 }
