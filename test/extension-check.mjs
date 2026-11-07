@@ -116,6 +116,11 @@ const extensionId = new URL(worker.url()).host;
 
 const panel = await context.newPage();
 await panel.goto(`chrome-extension://${extensionId}/panel.html`);
+{
+  const shown = (await panel.textContent('[data-testid="version"]'))?.trim();
+  const loaded = await panel.evaluate(() => chrome.runtime.getManifest().version);
+  check('the panel says which version it is, beside its name', Boolean(shown) && shown === loaded, `${shown} / ${loaded}`);
+}
 await panel.fill('#server', BASE);
 // A pairing code, as Orknux shows it: traded for the browser's own credential.
 await panel.fill('#token', 'k7p-4qx');

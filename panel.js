@@ -6,6 +6,8 @@
 import { Driver } from './driver.js';
 
 const VERSION = chrome.runtime.getManifest().version;
+// Said where the name is, so whoever is asked which version they run can read it off the panel.
+document.getElementById('version').textContent = VERSION;
 const WAIT_SECONDS = 25;
 const RETRY_MS = 3_000;
 const LOG_LENGTH = 100;
