@@ -1,0 +1,37 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>Orknux</title>
+  <link rel="stylesheet" href="panel.css">
+</head>
+<body>
+  <header>
+    <h1>Orknux</h1>
+    <span id="state" class="state off">Not connected</span>
+  </header>
+
+  <form id="settings">
+    <label>Server
+      <input id="server" type="url" placeholder="https://orknux.example.com" required>
+    </label>
+    <label>Access token
+      <input id="token" type="password" placeholder="orkx_…" autocomplete="off" required>
+    </label>
+    <p class="hint">Make a read and write token on your Orknux profile page. Your agents act in this browser as you, while this panel is open.</p>
+    <div class="buttons">
+      <button id="connect" type="submit">Connect</button>
+      <button id="disconnect" type="button" hidden>Disconnect</button>
+    </div>
+  </form>
+
+  <p id="message" class="message" hidden></p>
+
+  <section>
+    <h2>What your agents did</h2>
+    <ol id="log"></ol>
+  </section>
+
+  <script type="module" src="panel.js"></script>
+</body>
+</html>
