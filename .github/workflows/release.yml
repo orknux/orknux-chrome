@@ -1,0 +1,91 @@
+# The Orknux extension for Chrome: on a v* tag, the extension's folder as the zip the Chrome Web Store takes and
+# "Load unpacked" uses, attached to a GitHub release, offered through orknux.ai, and uploaded to the Web Store
+# where its API's secrets are set.
+name: release
+
+on:
+  push:
+    tags: ['v*']
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      # The Web Store refuses a version it already has, and a tag that is not the manifest's is a release of
+      # something else.
+      - name: The tag is the manifest's version
+        run: |
+          built="$(jq -r .version manifest.json)"
+          [ "v$built" = "$GITHUB_REF_NAME" ] || { echo "::error::manifest.json says $built and the tag is $GITHUB_REF_NAME"; exit 1; }
+
+      - name: Release notes
+        run: |
+          version="${GITHUB_REF_NAME#v}"
+          awk -v h="## $version" '$0==h {on=1; next} /^## / && on {exit} on' CHANGELOG.md > "$RUNNER_TEMP/notes.md"
+          [ -s "$RUNNER_TEMP/notes.md" ] || { echo "::error::CHANGELOG.md has no section ## $version"; exit 1; }
+
+      # What the extension is and nothing else: no tests, no repository furniture, no store material.
+      - name: The zip
+        run: |
+          version="${GITHUB_REF_NAME#v}"
+          mkdir -p dist
+          zip -r -X "dist/orknux-chrome-$version.zip" manifest.json *.js *.html *.css icons LICENSE
+          unzip -l "dist/orknux-chrome-$version.zip"
+          (cd dist && sha256sum *.zip > SHA256SUMS)
+
+      - uses: softprops/action-gh-release@v2
+        with:
+          files: dist/*
+          body_path: ${{ runner.temp }}/notes.md
+
+      # orknux.ai (docs/orknux-ai/client-releases.graphql in orknux-server), where the extension is downloaded until
+      # it is in the Web Store. A refusal is said and does not fail the release, which stands on GitHub.
+      - name: Offer it through orknux.ai
+        env:
+          TOKEN: ${{ secrets.ORKNUX_AI_PUBLISH_TOKEN }}
+        run: |
+          version="${GITHUB_REF_NAME#v}"
+          if [ -z "$TOKEN" ]; then
+            echo "::notice::ORKNUX_AI_PUBLISH_TOKEN is not set, so $version is on GitHub only."
+            exit 0
+          fi
+          file="dist/orknux-chrome-$version.zip"
+          jq -n --arg v "$version" --rawfile notes "$RUNNER_TEMP/notes.md" --arg s "$(sha256sum "$file" | cut -d' ' -f1)" --argjson n "$(stat -c %s "$file")" \
+            '{version: $v, changelog: $notes, files: [{platform: "any", sha256: $s, size: $n}]}' > "$RUNNER_TEMP/release.json"
+          site="https://orknux.ai/api/client-releases/chrome"
+          answer="$(curl -sS --retry 4 -X POST "$site" -H "Authorization: Bearer $TOKEN" -H 'Content-Type: application/json' --data "@$RUNNER_TEMP/release.json")"
+          jq -e '.files' <<<"$answer" >/dev/null 2>&1 || { echo "::warning::orknux.ai did not take $version: $answer"; exit 0; }
+          answer="$(curl -sS --retry 4 -X PUT "$site/$version/files/any?offset=$(jq -r '.files[0].received' <<<"$answer")" -H "Authorization: Bearer $TOKEN" \
+            -H 'Content-Type: application/octet-stream' --data-binary "@$file")"
+          jq -e '.files' <<<"$answer" >/dev/null 2>&1 || { echo "::warning::orknux.ai refused the zip: $answer"; exit 0; }
+          echo "$version is offered through orknux.ai: published $(jq -r '.published' <<<"$answer")"
+
+      # The Chrome Web Store API, where its four secrets are set (STORE.md says how to get them): the zip uploaded to
+      # the listing and submitted for review. Review decides when it is live; nothing here waits for it.
+      - name: Upload to the Chrome Web Store
+        env:
+          CLIENT_ID: ${{ secrets.CWS_CLIENT_ID }}
+          CLIENT_SECRET: ${{ secrets.CWS_CLIENT_SECRET }}
+          REFRESH_TOKEN: ${{ secrets.CWS_REFRESH_TOKEN }}
+          EXTENSION_ID: ${{ secrets.CWS_EXTENSION_ID }}
+        run: |
+          version="${GITHUB_REF_NAME#v}"
+          if [ -z "$CLIENT_ID" ] || [ -z "$CLIENT_SECRET" ] || [ -z "$REFRESH_TOKEN" ] || [ -z "$EXTENSION_ID" ]; then
+            echo "::notice::The Chrome Web Store secrets are not set, so $version is not uploaded to the Web Store."
+            exit 0
+          fi
+          access="$(curl -sS --fail-with-body https://oauth2.googleapis.com/token -d client_id="$CLIENT_ID" -d client_secret="$CLIENT_SECRET" \
+            -d refresh_token="$REFRESH_TOKEN" -d grant_type=refresh_token | jq -r .access_token)"
+          uploaded="$(curl -sS --fail-with-body -X PUT -H "Authorization: Bearer $access" -H 'x-goog-api-version: 2' \
+            -T "dist/orknux-chrome-$version.zip" "https://www.googleapis.com/upload/chromewebstore/v1.1/items/$EXTENSION_ID")"
+          echo "$uploaded"
+          [ "$(jq -r .uploadState <<<"$uploaded")" = "SUCCESS" ] || { echo "::error::The Web Store did not take the zip: $uploaded"; exit 1; }
+          submitted="$(curl -sS --fail-with-body -X POST -H "Authorization: Bearer $access" -H 'x-goog-api-version: 2' -H 'Content-Length: 0' \
+            "https://www.googleapis.com/chromewebstore/v1.1/items/$EXTENSION_ID/publish")"
+          echo "$submitted"
+          echo "$version is submitted to the Chrome Web Store for review."

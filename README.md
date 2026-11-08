@@ -6,12 +6,16 @@ their own, while you watch.
 
 ## Using it
 
-1. Load it: `chrome://extensions`, switch on Developer mode, **Load unpacked**,
-   and pick this folder.
+1. Install it: from the Chrome Web Store once it is listed there, or download
+   `orknux-chrome-<version>.zip` from the
+   [releases](https://github.com/orknux/orknux-chrome/releases), unzip it
+   somewhere it will stay, open `chrome://extensions`, switch on Developer mode,
+   press **Load unpacked**, and pick the folder.
 2. Click the Orknux button in the toolbar. The side panel opens.
-3. Enter your server's address and a **read and write** access token from your
-   Orknux profile page, and press **Connect**. Chrome asks once for permission
-   to reach that server.
+3. In Orknux, open **Preferences › Connected clients › Connect a client**, paste
+   the pairing link into the side panel, and press **Connect**. Chrome asks once
+   for permission to reach that server. An access token with the server's
+   address works too.
 4. On the agent's page, switch on the `browser_*` tools on its Tools list. They
    are off for every agent until somebody does.
 
@@ -57,3 +61,11 @@ test/run.sh
 Runs a real Chromium with the extension loaded (in the Playwright image, since
 there is no Node on the development machine) against a stub server, and drives
 every action against a test page. The server's half is `BrowserToolsTest`.
+
+## Releasing
+
+Write the version's section in `CHANGELOG.md`, set the same version in
+`manifest.json`, and push a tag `v<version>`. The release workflow checks the
+two agree, builds the zip, attaches it to a GitHub release, offers it through
+orknux.ai, and uploads it to the Chrome Web Store where that is set up -
+`STORE.md` has the listing and the secrets.
