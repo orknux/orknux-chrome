@@ -45,6 +45,9 @@ button {
 }
 #disconnect { background: transparent; color: var(--text); }
 
+.switch { display: flex; align-items: center; gap: 8px; margin: 12px 0 0; color: var(--text); font-size: 12px; }
+.switch input { display: inline; width: auto; margin: 0; accent-color: var(--accent); }
+
 .message { margin: 12px 0 0; padding: 8px 10px; border-radius: 6px; background: #2a1618; color: #ffb4b6; }
 
 ol { list-style: none; margin: 0; padding: 0; }

@@ -47,6 +47,8 @@ function describe(action, args) {
     case 'snapshot': return 'Read the page';
     case 'screenshot': return 'Took a screenshot';
     case 'scroll': return `Scrolled ${args.direction ?? 'down'}`;
+    case 'scroll_by': return `Scrolled ${args.within ? args.within + ' ' : ''}${args.direction ?? 'down'}${args.amount ? ` by ${args.amount}px` : ''}`;
+    case 'scroll_to': return `Scrolled to ${args.ref}`;
     case 'back': return 'Went back';
     case 'close': return 'Closed a tab';
     case 'tabs': return 'Listed its tabs';
@@ -236,9 +238,16 @@ $('settings').addEventListener('submit', (event) => {
 });
 $('disconnect').addEventListener('click', () => stop());
 
-chrome.storage.local.get(['server', 'token']).then(({ server, token }) => {
+chrome.storage.local.get(['server', 'token', 'showActions']).then(({ server, token, showActions }) => {
   if (server) $('server').value = server;
   if (token) $('token').value = token;
+  // On unless somebody turned it off: watching the agent is what the window is for.
+  driver.showActions = showActions !== false;
+  $('show-actions').checked = driver.showActions;
+});
+$('show-actions').addEventListener('change', () => {
+  driver.showActions = $('show-actions').checked;
+  chrome.storage.local.set({ showActions: driver.showActions });
 });
 
 // Closing the panel ends the page and with it the loop; the debugger is let go of as it goes.

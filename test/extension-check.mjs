@@ -34,6 +34,7 @@ const PAGE = `<!doctype html><title>Form page</title>
 <p id="out">nobody yet</p>
 <input id="enter" aria-label="Search" onkeydown="if(event.key==='Enter'){document.getElementById('out').textContent='searched ' + this.value}">
 <a href="/second.html">Second page</a>
+<div id="pane" style="height:60px;overflow:auto"><button id="inner">Inside the pane</button><div style="height:400px"></div><button id="deep">Deep in the pane</button></div>
 <div style="height:4000px"></div><p>The very end</p>`;
 
 const server = http.createServer(async (req, res) => {
@@ -80,6 +81,50 @@ const server = http.createServer(async (req, res) => {
 });
 await new Promise((resolve) => server.listen(0, '127.0.0.1', resolve));
 const BASE = `http://127.0.0.1:${server.address().port}`;
+
+/**
+ * The marks drawn on a page, read the way the agent's own driver could not be
+ * fooled into reading them: through the protocol, piercing the closed shadow
+ * root, with each ring and box measured where Chrome drew it.
+ */
+async function marksOn(page) {
+  const cdp = await context.newCDPSession(page);
+  try {
+    const { root } = await cdp.send('DOM.getDocument', { depth: -1, pierce: true });
+    const found = { hosts: 0, rings: [], boxes: [] };
+    const classOf = (node) => {
+      const at = (node.attributes ?? []).indexOf('class');
+      return at >= 0 ? node.attributes[at + 1] : '';
+    };
+    const walk = async (node, inMark) => {
+      if (node.nodeName === 'ORKNUX-MARK') found.hosts++;
+      const kind = classOf(node);
+      if (inMark && node.nodeName === 'DIV' && (kind === 'ring' || kind === 'box')) {
+        const { model } = await cdp.send('DOM.getBoxModel', { nodeId: node.nodeId });
+        const q = model.border;
+        const xs = [q[0], q[2], q[4], q[6]];
+        const ys = [q[1], q[3], q[5], q[7]];
+        const rect = { x: Math.min(...xs), y: Math.min(...ys), width: Math.max(...xs) - Math.min(...xs), height: Math.max(...ys) - Math.min(...ys) };
+        (kind === 'ring' ? found.rings : found.boxes).push(rect);
+      }
+      for (const child of [...(node.children ?? []), ...(node.shadowRoots ?? [])]) {
+        await walk(child, inMark || node.nodeName === 'ORKNUX-MARK');
+      }
+    };
+    await walk(root, false);
+    return found;
+  } finally {
+    await cdp.detach().catch(() => {});
+  }
+}
+
+const near = (a, b, by = 2) => Math.abs(a - b) <= by;
+const sameRect = (a, b) => near(a.x, b.x) && near(a.y, b.y) && near(a.width, b.width) && near(a.height, b.height);
+const centreOf = (r) => ({ x: r.x + r.width / 2, y: r.y + r.height / 2 });
+const rectIn = (page, selector) => page.evaluate((s) => {
+  const r = document.querySelector(s).getBoundingClientRect();
+  return { x: r.x, y: r.y, width: r.width, height: r.height };
+}, selector);
 
 let next = 0;
 function command(action, args = {}) {
@@ -142,10 +187,51 @@ try {
   check('snapshot gives the controls refs', !!field && !!button && !!search, snap.text);
   check('snapshot shows a field\'s value', /textbox "Name" value="old"/.test(snap.text), snap.text);
 
+  const agentPage = context.pages().find((open) => open.url().endsWith('/page.html'));
+  const outBefore = await rectIn(agentPage, '#out');
+
   await command('type', { ref: field, text: 'Michal' });
+  const typed = await marksOn(agentPage);
+  const nameRect = await rectIn(agentPage, '#name');
+  check('typing outlines the field it typed into', typed.boxes.some((box) => sameRect(box, nameRect)) && typed.rings.length === 0,
+    `${JSON.stringify(typed)} / ${JSON.stringify(nameRect)}`);
+
   await command('click', { ref: button });
+  const clicked = await marksOn(agentPage);
+  const goRect = await rectIn(agentPage, '#go');
+  const ring = clicked.rings[0];
+  check('a click draws one ring, centred where it clicked',
+    clicked.rings.length === 1 && near(centreOf(ring).x, centreOf(goRect).x) && near(centreOf(ring).y, centreOf(goRect).y),
+    `${JSON.stringify(clicked.rings)} / ${JSON.stringify(goRect)}`);
+  check('and outlines what it clicked', clicked.boxes.some((box) => sameRect(box, goRect)), JSON.stringify(clicked.boxes));
+  const host = await agentPage.evaluate(() => {
+    const mark = document.querySelector('orknux-mark');
+    if (!mark) return null;
+    const style = getComputedStyle(mark);
+    return { position: style.position, pointerEvents: style.pointerEvents, hidden: mark.getAttribute('aria-hidden'), open: mark.shadowRoot !== null };
+  });
+  check('the mark is fixed, takes no pointer, is hidden from a reader and closed to the page',
+    host?.position === 'fixed' && host.pointerEvents === 'none' && host.hidden === 'true' && host.open === false, JSON.stringify(host));
+  const outAfter = await rectIn(agentPage, '#out');
+  check('and the page did not move for it', sameRect(outBefore, outAfter), `${JSON.stringify(outBefore)} / ${JSON.stringify(outAfter)}`);
+
   const after = (await command('snapshot', { find: 'hello' })).result;
   check('type replaces a field and click presses a button', after.text.includes('Hello Michal'), after.text);
+
+  await agentPage.waitForTimeout(2000);
+  check('the marks fade and are taken off the page', (await marksOn(agentPage)).hosts === 0);
+
+  await command('click', { ref: button });
+  await command('screenshot');
+  check('a screenshot right after a click shows the page without the mark', (await marksOn(agentPage)).hosts === 0);
+
+  await panel.uncheck('#show-actions');
+  await command('click', { ref: button });
+  check('switched off in the panel, a click draws nothing', (await marksOn(agentPage)).hosts === 0);
+  await panel.check('#show-actions');
+  await command('click', { ref: button });
+  check('and switched on again, it does', (await marksOn(agentPage)).hosts === 1);
+  await agentPage.waitForTimeout(2000);
 
   await command('type', { ref: search, text: 'kicad', submit: true });
   const searched = (await command('snapshot', { find: 'searched' })).result;
@@ -159,6 +245,39 @@ try {
 
   const scrolled = (await command('scroll', { direction: 'down' })).result;
   check('scroll moves down the page', scrolled.scrolledTo > 0, JSON.stringify(scrolled));
+
+  {
+    const inner = /\[(e\d+)\] button "Inside the pane"/.exec(snap.text)?.[1];
+    const deep = /\[(e\d+)\] button "Deep in the pane"/.exec(snap.text)?.[1];
+    const pageY = () => agentPage.evaluate(() => scrollY);
+    const paneY = () => agentPage.evaluate(() => document.getElementById('pane').scrollTop);
+
+    const startY = await pageY();
+    const by = (await command('scroll_by', { direction: 'down', amount: 100 })).result;
+    check('scroll_by moves the page by the amount asked', by.scrolled === 'page' && by.moved === true && by.scrolledTo === startY + 100 && (await pageY()) === startY + 100,
+      JSON.stringify(by));
+
+    const before = await pageY();
+    const inside = (await command('scroll_by', { direction: 'down', amount: 50, within: inner })).result;
+    check('scroll_by within a ref moves the box around it, not the page',
+      inside.scrolled === 'box' && inside.moved === true && (await paneY()) === 50 && (await pageY()) === before, JSON.stringify(inside));
+
+    await command('scroll_by', { direction: 'up', amount: 1000, within: inner });
+    const stuck = (await command('scroll_by', { direction: 'up', within: inner })).result;
+    check('at its end it says it did not move, in words', stuck.moved === false && /did not move/.test(stuck.note ?? ''), JSON.stringify(stuck));
+
+    const sideways = await command('scroll_by', { direction: 'sideways' });
+    check('a direction it does not know is refused in words', /not a direction/.test(sideways.error ?? ''), JSON.stringify(sideways));
+
+    const to = (await command('scroll_to', { ref: deep })).result;
+    const seen = await agentPage.evaluate(() => {
+      const pane = document.getElementById('pane').getBoundingClientRect();
+      const it = document.getElementById('deep').getBoundingClientRect();
+      return it.top >= pane.top && it.bottom <= pane.bottom + 1 && it.top >= 0 && it.bottom <= innerHeight;
+    });
+    check('scroll_to brings an element into view, inside the box it sits in', to.moved === true && to.shown === true && to.ref === deep && typeof to.scrolledTo === 'number' && seen, JSON.stringify(to));
+    await agentPage.waitForTimeout(1600);
+  }
 
   const shot = (await command('screenshot')).result;
   check('screenshot answers a picture', shot.mimeType === 'image/jpeg' && shot.data.length > 1000, `${shot.data?.length} chars`);
