@@ -4,7 +4,7 @@ Each release's section is its notes, on GitHub, on orknux.ai and in the
 Chrome Web Store. Written before the tag: the release workflow refuses a tag
 with no section here, and one that is not `manifest.json`'s version.
 
-## Unreleased
+## 1.0.5
 
 ### Added
 
