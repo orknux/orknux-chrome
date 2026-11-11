@@ -16,6 +16,15 @@ const $ = (id) => document.getElementById(id);
 
 let running = false;
 let controller = null;
+// Show and Hide the access token: it is hidden by default, and showing it is how a pasted one is checked.
+$('show-token').addEventListener('click', () => {
+  const shown = $('token').type === 'password';
+  $('token').type = shown ? 'text' : 'password';
+  $('show-token').textContent = shown ? 'Hide' : 'Show';
+  $('show-token').setAttribute('aria-pressed', String(shown));
+  $('show-token').setAttribute('aria-label', shown ? 'Hide the access token' : 'Show the access token');
+});
+
 const driver = new Driver({ onUserStop: () => stop('You cancelled the debugging bar, so the browser was disconnected.') });
 
 function setState(text, kind) {

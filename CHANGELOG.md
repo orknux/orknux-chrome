@@ -4,6 +4,13 @@ Each release's section is its notes, on GitHub, on orknux.ai and in the
 Chrome Web Store. Written before the tag: the release workflow refuses a tag
 with no section here, and one that is not `manifest.json`'s version.
 
+## 1.0.6
+
+### Added
+
+- A Show button beside the access token, so a pasted token can be checked
+  before connecting; Hide hides it again.
+
 ## 1.0.5
 
 ### Added

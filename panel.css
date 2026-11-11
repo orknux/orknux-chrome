@@ -37,6 +37,10 @@ input {
   background: var(--bg); color: var(--text); border: 1px solid var(--line); border-radius: 6px; font: inherit;
 }
 input:disabled { opacity: .6; }
+/* The token and the button that shows it, on one line. */
+.secret { display: flex; gap: 6px; margin-top: 4px; }
+.secret input { margin-top: 0; flex: 1; min-width: 0; }
+#show-token { flex: none; padding: 6px 10px; background: transparent; color: var(--text); }
 .hint { color: var(--muted); font-size: 12px; margin: 0 0 12px; }
 .buttons { display: flex; gap: 8px; }
 button {

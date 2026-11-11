@@ -17,7 +17,10 @@
       <input id="server" type="text" placeholder="https://orknux.example.com/pair/K7P-4QX" autocomplete="off" required>
     </label>
     <label>Access token, if not a pairing link
-      <input id="token" type="password" placeholder="orkx_… (or the code alone)" autocomplete="off">
+      <span class="secret">
+        <input id="token" type="password" placeholder="orkx_… (or the code alone)" autocomplete="off">
+        <button id="show-token" type="button" aria-pressed="false" aria-label="Show the access token">Show</button>
+      </span>
     </label>
     <p class="hint">Paste the pairing link from Orknux (or server + token): Preferences › Connected clients › Connect a client. Your agents act in this browser as you, while this panel is open.</p>
     <div class="buttons">

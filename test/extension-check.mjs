@@ -166,6 +166,25 @@ await panel.goto(`chrome-extension://${extensionId}/panel.html`);
   const loaded = await panel.evaluate(() => chrome.runtime.getManifest().version);
   check('the panel says which version it is, beside its name', Boolean(shown) && shown === loaded, `${shown} / ${loaded}`);
 }
+// The access token is hidden, and Show shows it and Hide hides it again.
+{
+  await panel.fill('#token', 'orkx_seen');
+  const hidden = await panel.getAttribute('#token', 'type');
+  await panel.click('#show-token');
+  const shown = await panel.getAttribute('#token', 'type');
+  const said = (await panel.textContent('#show-token'))?.trim();
+  await panel.click('#show-token');
+  const again = await panel.getAttribute('#token', 'type');
+  const row = await panel.evaluate(() => {
+    const field = document.getElementById('token').getBoundingClientRect();
+    const button = document.getElementById('show-token').getBoundingClientRect();
+    return { sameRow: Math.abs(field.top + field.height / 2 - (button.top + button.height / 2)) <= 1, beside: button.left >= field.right };
+  });
+  check('the access token is hidden, Show shows it and Hide hides it again',
+    hidden === 'password' && shown === 'text' && said === 'Hide' && again === 'password', `${hidden} ${shown} ${said} ${again}`);
+  check('and the button sits beside the field, on its line', row.sameRow && row.beside, JSON.stringify(row));
+  await panel.fill('#token', '');
+}
 await panel.fill('#server', BASE);
 // A pairing code, as Orknux shows it: traded for the browser's own credential.
 await panel.fill('#token', 'k7p-4qx');
